@@ -1,0 +1,7 @@
+{
+  "name": "Thrivesense AI Wellness Assistant",
+  "description": "An AI-powered wellness assistant that listens to your day, analyzes your mood through voice and facial expression, and provides motivational feedback. Track your emotional well-being over time with a personal journal and mood graphs.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
