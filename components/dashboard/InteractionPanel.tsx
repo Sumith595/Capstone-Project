@@ -12,6 +12,7 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
   const [sleepHours, setSleepHours] = useState(8);
   const [stressLevel, setStressLevel] = useState(5);
   const [facialImage, setFacialImage] = useState<string | undefined>(undefined); // Now holds the full data URI
+  const [facialEmotion, setFacialEmotion] = useState<string | undefined>(undefined);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,60 +23,142 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
   const textDebounceRef = useRef<number | null>(null);
   const faceApiRef = useRef<typeof FaceAPIType | null>(null);
   const modelsLoadedRef = useRef(false);
-  const useFaceApi = (import.meta.env.VITE_USE_FACE_API === 'true');
+  const useFaceApi = true; // Re-enabled real facial expression detection
+
+  console.log('InteractionPanel loaded - useFaceApi:', useFaceApi);
 
   useEffect(() => {
     // Clear any initial errors
     setError(null);
     
-    // FIX: Property 'SpeechRecognition' does not exist on type 'Window & typeof globalThis'.
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    try {
+      // FIX: Property 'SpeechRecognition' does not exist on type 'Window & typeof globalThis'.
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.warn('❌ Speech Recognition not supported by this browser.');
+        return;
+      }
+
+      console.log('✅ SpeechRecognition API available');
       recognitionRef.current = new SpeechRecognition();
       const recognition = recognitionRef.current;
-      recognition.continuous = true;
+      
+      // Configure recognition
+      recognition.continuous = false; // Stop after silence
       recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        console.log('🎤 Recording started - speak now');
+        setIsRecording(true);
+      };
 
       recognition.onresult = (event: any) => {
+        console.log('🎤 [ONRESULT] Speech detected - event:', event);
+        console.log('🎤 [ONRESULT] resultIndex:', event.resultIndex, 'results.length:', event.results.length);
+        let interimTranscript = '';
         let finalTranscript = '';
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript;
+          console.log(`[${i}] transcript="${transcript}" isFinal=${event.results[i].isFinal}`);
+          
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+            finalTranscript += transcript + ' ';
+            console.log('✅ Final added:', transcript);
+          } else {
+            interimTranscript += transcript;
+            console.log('⏳ Interim added:', transcript);
           }
         }
-        // Append final transcript to existing text
-        if (finalTranscript) {
-            setText(prevText => (prevText ? prevText.trim() + ' ' : '') + finalTranscript.trim() + '. ');
+
+        console.log('📝 finalTranscript:', `"${finalTranscript}"`, 'length:', finalTranscript.length);
+        
+        if (finalTranscript && finalTranscript.trim()) {
+          console.log('📝 Setting text with:', finalTranscript);
+          setText(prevText => {
+            const newText = prevText + finalTranscript;
+            console.log('📝 Text updated, new value:', newText);
+            return newText;
+          });
+          
+          // Detect emotion from transcribed text
+          const textLower = finalTranscript.toLowerCase();
+          console.log('🔍 Analyzing emotion from:', textLower);
+          let detectedEmotion = 'neutral';
+          
+          if (/happy|joy|excited|great|amazing|wonderful|fantastic|good|positive|cheerful|love|laugh/i.test(textLower)) {
+            detectedEmotion = 'happy';
+            console.log('😊 Detected emotion from audio: HAPPY');
+          } else if (/sad|depressed|hopeless|empty|worthless|lonely|down|blue|miserable|cry/i.test(textLower)) {
+            detectedEmotion = 'sad';
+            console.log('😢 Detected emotion from audio: SAD');
+          } else if (/angry|mad|furious|irritated|frustrated|rage|annoyed|hate/i.test(textLower)) {
+            detectedEmotion = 'angry';
+            console.log('😠 Detected emotion from audio: ANGRY');
+          } else if (/anxious|anxiety|panic|worried|nervous|fear|scared|overwhelmed|restless/i.test(textLower)) {
+            detectedEmotion = 'fearful';
+            console.log('😨 Detected emotion from audio: FEARFUL');
+          } else if (/calm|peaceful|relaxed|serene|tranquil|content|balanced/i.test(textLower)) {
+            detectedEmotion = 'neutral';
+            console.log('😌 Detected emotion from audio: CALM');
+          } else {
+            console.log('❓ No emotion keywords matched, defaulting to neutral');
+          }
+          
+          setFacialEmotion(detectedEmotion);
+          console.log('🎯 Facial emotion set to:', detectedEmotion);
+        } else {
+          console.log('⚠️ No finalTranscript, skipping emotion detection');
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
+        console.error('❌ Speech recognition error:', event.error);
         setIsRecording(false);
       };
 
       recognition.onend = () => {
+        console.log('🎤 Recording ended');
         setIsRecording(false);
       };
-    } else {
-      console.warn('Speech Recognition not supported by this browser.');
+    } catch (err) {
+      console.error('❌ Error initializing SpeechRecognition:', err);
     }
 
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.log('Voice cleanup:', e);
+        }
       }
     };
   }, []);
 
   const handleToggleRecording = () => {
-    if (!recognitionRef.current) return;
-    if (isRecording) {
-      recognitionRef.current.stop();
-    } else {
-      recognitionRef.current.start();
+    if (!recognitionRef.current) {
+      console.error('❌ SpeechRecognition not initialized');
+      setError('Voice recording not available in your browser');
+      return;
     }
-    setIsRecording(!isRecording);
+    
+    try {
+      if (isRecording) {
+        console.log('⏹️ Stopping recording...');
+        recognitionRef.current.stop();
+        setIsRecording(false);
+      } else {
+        console.log('🎤 Starting recording... Speak now!');
+        recognitionRef.current.start();
+        setIsRecording(true);
+      }
+    } catch (err) {
+      console.error('❌ Error toggling recording:', err);
+      setError('Error with voice recording');
+      setIsRecording(false);
+    }
   };
 
   const handleUploadClick = () => {
@@ -104,13 +187,16 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
             setIsEstimatingStress(true);
 
             if (useFaceApi) {
+              console.log('🚀 Starting face-api.js facial expression detection');
               try {
                 // lazy-load face-api.js and models
                 if (!faceApiRef.current) {
+                  console.log('Loading face-api.js library...');
                   // dynamic import so bundler doesn't break if package missing
                   // eslint-disable-next-line @typescript-eslint/no-var-requires
                   const faceapi = await import('face-api.js');
                   faceApiRef.current = faceapi as unknown as typeof FaceAPIType;
+                  console.log('📚 face-api.js library loaded successfully:', !!faceApiRef.current);
                 }
                 if (!modelsLoadedRef.current) {
                   // Prefer local models hosted at /models (Vite serves public/ as root)
@@ -118,17 +204,28 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
                   const cdnModelUrl = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
                   // Try local first, then fallback to CDN
                   const tryLoad = async (baseUrl: string) => {
+                    console.log('Attempting to load models from:', baseUrl);
                     await Promise.all([
                       faceApiRef.current!.nets.tinyFaceDetector.loadFromUri(baseUrl),
                       faceApiRef.current!.nets.faceExpressionNet.loadFromUri(baseUrl),
                     ]);
+                    console.log('Successfully loaded models from:', baseUrl);
                   };
 
                   try {
                     await tryLoad(localModelUrl);
+                    console.log('✅ Models loaded from local /models directory');
+                    modelsLoadedRef.current = true;
                   } catch (localErr) {
-                    console.warn('Local face-api models not found at /models, falling back to CDN', localErr);
-                    await tryLoad(cdnModelUrl);
+                    console.warn('❌ Local face-api models failed to load from /models, trying CDN...', localErr);
+                    try {
+                      await tryLoad(cdnModelUrl);
+                      console.log('✅ Models loaded from CDN fallback');
+                      modelsLoadedRef.current = true;
+                    } catch (cdnErr) {
+                      console.error('❌ Both local and CDN model loading failed!', cdnErr);
+                      throw cdnErr;
+                    }
                   }
 
                   modelsLoadedRef.current = true;
@@ -137,38 +234,87 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
                 // create image element for face-api
                 const img = new Image();
                 img.src = result;
+                console.log('🖼️ Loading image for face detection, src length:', result.length);
                 await img.decode();
-                const detection = await faceApiRef.current!.detectSingleFace(
+                console.log('🖼️ Image decoded successfully, dimensions:', img.width, 'x', img.height);
+                const detection = (await faceApiRef.current!.detectSingleFace(
                   img,
                   new faceApiRef.current!.TinyFaceDetectorOptions()
-                ).withFaceExpressions();
+                ).withFaceExpressions()) as any;
 
-                if (detection && detection.expressions) {
+                console.log('🔍 Detection result:', detection ? 'Face found' : 'No face found');
+                console.log('🔍 Detection object:', detection);
+
+                if (detection?.expressions) {
                   const e = detection.expressions as unknown as Record<string, number>;
-                  // simple mapping: angry/fearful/sad increases stress; happy/neutral decreases
-                  let score = 5 + ( (e.angry || 0) * 3 ) + ( (e.fearful || 0) * 3 ) + ( (e.sad || 0) * 2 ) + ( (e.surprised || 0) * 1 ) - ( (e.happy || 0) * 2 ) - ( (e.neutral || 0) * 1 );
+                  console.log('🎯 FACE DETECTED! Raw expressions:', { 
+                    happy: e.happy,
+                    sad: e.sad,
+                    angry: e.angry,
+                    fearful: e.fearful,
+                    disgusted: e.disgusted,
+                    surprised: e.surprised,
+                    neutral: e.neutral
+                  });
+                  
+                  // Find the dominant expression
+                  const expressions = {
+                    angry: e.angry || 0,
+                    disgusted: e.disgusted || 0,
+                    fearful: e.fearful || 0,
+                    happy: e.happy || 0,
+                    neutral: e.neutral || 0,
+                    sad: e.sad || 0,
+                    surprised: e.surprised || 0
+                  };
+                  
+                  // Get the expression with highest confidence
+                  const dominant = Object.entries(expressions).reduce((a, b) => a[1] > b[1] ? a : b);
+                  console.log('🎯 Dominant expression:', dominant[0], 'confidence:', dominant[1]);
+                  
+                  setFacialEmotion(dominant[0]);
+                  console.log('🎯 facialEmotion state set to:', dominant[0]);
+                  
+                  // Calculate stress based on ALL emotions, not just dominant
+                  // This gives better results when face-api detects multiple emotions
+                  let score = 5; // baseline
+                  score += (expressions.angry * 5);      // angry adds stress
+                  score += (expressions.fearful * 5);    // fear adds stress
+                  score += (expressions.sad * 4);        // sadness adds stress
+                  score += (expressions.disgusted * 3);  // disgust adds some stress
+                  score += (expressions.surprised * 1);  // surprise adds a bit
+                  score -= (expressions.happy * 4);      // happiness reduces stress
+                  score -= (expressions.neutral * 1);    // neutral slightly reduces
+                  
                   score = Math.round(Math.max(1, Math.min(10, score)));
+                  console.log('🎯 Calculated stress level:', score);
                   setStressLevel(score);
+                  setIsEstimatingStress(false);
                 } else {
+                  console.warn('❌ No face detected, falling back to server-side estimation');
                   // fallback to server-side estimation
                   const estimated = await analyzeStressFromImage({ imageBase64, imageMimeType });
-                  setStressLevel(Number(estimated));
+                  setStressLevel(Number(estimated.stressLevel));
+                  setFacialEmotion(estimated.emotion);
+                  setIsEstimatingStress(false);
                 }
               } catch (err) {
-                console.warn('Client-side face-api detection failed, falling back to server', err);
+                console.warn('❌ Client-side face-api detection failed, falling back to server', err);
                 const estimated = await analyzeStressFromImage({ imageBase64, imageMimeType });
-                setStressLevel(Number(estimated));
-              } finally {
+                setStressLevel(Number(estimated.stressLevel));
+                setFacialEmotion(estimated.emotion);
                 setIsEstimatingStress(false);
               }
             } else {
-              // server-side estimation
+              // No face-api available, use server-side estimation
               try {
-                const estimated = await analyzeStressFromImage({ imageBase64, imageMimeType });
-                setStressLevel(Number(estimated));
+                const result = await analyzeStressFromImage({ imageBase64, imageMimeType });
+                setStressLevel(result.stressLevel);
+                setFacialEmotion(result.emotion);
               } catch (err) {
-                console.warn('Facial stress estimation failed', err);
+                console.error('Server-side facial estimation failed', err);
                 setStressLevel(5);
+                setFacialEmotion(undefined);
               } finally {
                 setIsEstimatingStress(false);
               }
@@ -245,10 +391,17 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() && !facialImage) {
-      setError("Please add a journal entry or upload a photo to continue.");
+    if (!text.trim() && !facialImage && !facialEmotion) {
+      setError("Please add a journal entry, upload a photo, or record your voice to continue.");
       return;
     }
+    
+    // If we have a facial image but no emotion detected yet, wait for detection
+    if (facialImage && !facialEmotion) {
+      setError("Please wait for facial analysis to complete before submitting.");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null); // Clear any previous errors
     try {
@@ -261,7 +414,36 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
         const imageBase64 = parts[1];
 
         if (imageBase64 && imageMimeType) {
-            analysis = await analyzeWellness({ text, sleepHours, stressLevel, imageBase64, imageMimeType });
+            // FOR FACIAL IMAGES: Completely ignore text input - only use facial emotion
+            console.log('Facial image detected - IGNORING any text input');
+            
+            // Ensure we have facial emotion before proceeding
+            if (!facialEmotion) {
+              console.warn('No facial emotion detected, cannot proceed with analysis');
+              setError("Please upload a clear facial image first.");
+              setIsLoading(false);
+              return;
+            }
+            
+            console.log('facialEmotion before analyzeWellness:', facialEmotion, '| Type:', typeof facialEmotion);
+            console.log('Sending to server: NO TEXT, facialEmotion:', facialEmotion, 'stressLevel:', stressLevel);
+            
+            // Force facialEmotion to be a string if it's set
+            const emotionToSend = facialEmotion || 'neutral';
+            console.log('Final emotionToSend:', emotionToSend, '| Was facialEmotion falsy?', !facialEmotion);
+            
+            const paramsToSend = { 
+              text: '', // FORCE empty - facial analysis only
+              sleepHours, 
+              stressLevel, 
+              facialEmotion: emotionToSend,
+              imageBase64, 
+              imageMimeType 
+            };
+            console.log('Complete params being sent:', Object.keys(paramsToSend));
+            
+            analysis = await analyzeWellness(paramsToSend);
+            console.log('Analysis result:', analysis);
         } else {
             // This case might happen if data URI is malformed, so we treat it as text-only
             // but we need to ensure text is present
@@ -271,19 +453,55 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
             analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel });
         }
       } else {
-          // No image: try to estimate stress from text first, then run text-only analysis
-          if (text.trim()) {
+          // No image, but check if we have facial emotion from voice recording
+          if (facialEmotion && !text.trim()) {
+            // Voice-only analysis: just the detected emotion from audio
+            console.log('Voice recording detected - facialEmotion from audio:', facialEmotion);
+            analysis = await analyzeWellness({ 
+              text: '', 
+              sleepHours, 
+              stressLevel,
+              facialEmotion,
+              imageBase64: '',
+              imageMimeType: ''
+            });
+          } else if (text.trim()) {
+            // Text input detected
             try {
               const estimated = await analyzeStressFromText({ text });
               setStressLevel(Number(estimated));
-              // use estimated stress level in the analysis
-              analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel: Number(estimated) });
+              // If we also have facial emotion from voice, use it; otherwise use text-only
+              if (facialEmotion) {
+                console.log('Combining voice emotion with text input:', facialEmotion);
+                analysis = await analyzeWellness({ 
+                  text, 
+                  sleepHours, 
+                  stressLevel: Number(estimated),
+                  facialEmotion,
+                  imageBase64: '',
+                  imageMimeType: ''
+                });
+              } else {
+                // Text only, no voice emotion
+                analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel: Number(estimated) });
+              }
             } catch (err) {
               console.warn('Text-based stress estimation failed', err);
-              analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel });
+              if (facialEmotion) {
+                analysis = await analyzeWellness({ 
+                  text, 
+                  sleepHours, 
+                  stressLevel,
+                  facialEmotion,
+                  imageBase64: '',
+                  imageMimeType: ''
+                });
+              } else {
+                analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel });
+              }
             }
           } else {
-            // Shouldn't reach here because of initial validation, but fallback
+            // Fallback: shouldn't reach here because of validation
             analysis = await analyzeWellnessTextOnly({ text, sleepHours, stressLevel });
           }
       }
@@ -293,9 +511,10 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
         date: new Date().toISOString(),
         transcribedText: text,
         analysis,
-        facialImage, // Store the full data URI
+        facialImage: undefined, // Don't store images to avoid localStorage quota issues
         sleepHours,
-        stressLevel
+        stressLevel,
+        facialEmotion
       };
 
       onNewEntry(newEntry);
@@ -305,6 +524,7 @@ const InteractionPanel: React.FC<InteractionPanelProps> = ({ onNewEntry }) => {
       setSleepHours(8);
       setStressLevel(5);
       setFacialImage(undefined);
+      setFacialEmotion(undefined);
       if(fileInputRef.current) {
         fileInputRef.current.value = ""; // Reset file input
       }

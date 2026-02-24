@@ -12,6 +12,16 @@ function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
   const normalizedSleep = Math.max(0, Math.min(12, Number(sleepHours) || 7));
   const normalizedStress = Math.max(0, Math.min(10, Number(stressLevel) || 5));
   const textLower = (text || '').toLowerCase();
+  const hasText = text && typeof text === 'string' && text.trim().length > 0;
+
+  console.log('=== makeAnalysis called ===');
+  console.log('Text type:', typeof text);
+  console.log('Text value:', text);
+  console.log('Text length:', text ? text.length : 0);
+  console.log('Sleep Hours:', normalizedSleep);
+  console.log('Stress Level:', normalizedStress);
+  console.log('Has Text:', hasText);
+  console.log('Has Text:', hasText);
 
   // Analyze text for emotional indicators
   const emotionalIndicators = {
@@ -32,46 +42,79 @@ function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
   let moodScore = 5;
   const keyEmotions = [];
 
-  if (emotionalIndicators.happiness) {
-    primaryEmotion = 'happy';
-    moodScore = Math.max(7, 10 - normalizedStress + (normalizedSleep / 2));
-    keyEmotions.push('happy', 'positive');
-  } else if (emotionalIndicators.anxiety) {
-    primaryEmotion = 'anxious';
-    moodScore = Math.max(1, 4 - (normalizedStress / 2));
-    keyEmotions.push('anxious', 'worried');
-  } else if (emotionalIndicators.depression) {
-    primaryEmotion = 'depressed';
-    moodScore = Math.max(1, 3 - (normalizedStress / 3));
-    keyEmotions.push('sad', 'down');
-  } else if (emotionalIndicators.anger) {
-    primaryEmotion = 'angry';
-    moodScore = Math.max(2, 5 - (normalizedStress / 2));
-    keyEmotions.push('angry', 'frustrated');
-  } else if (emotionalIndicators.stress) {
-    primaryEmotion = 'stressed';
-    moodScore = Math.max(2, 6 - normalizedStress);
-    keyEmotions.push('stressed', 'overwhelmed');
-  } else if (emotionalIndicators.calm) {
-    primaryEmotion = 'calm';
-    moodScore = Math.min(9, 7 + (normalizedSleep / 3) - (normalizedStress / 4));
-    keyEmotions.push('calm', 'peaceful');
-  } else if (emotionalIndicators.grief) {
-    primaryEmotion = 'grieving';
-    moodScore = Math.max(1, 4 - (normalizedStress / 3));
-    keyEmotions.push('grieving', 'sad');
-  } else if (emotionalIndicators.confusion) {
-    primaryEmotion = 'confused';
-    moodScore = Math.max(3, 5 - (normalizedStress / 3));
-    keyEmotions.push('confused', 'uncertain');
-  } else if (emotionalIndicators.fatigue) {
-    primaryEmotion = 'tired';
-    moodScore = Math.max(2, 6 - (12 - normalizedSleep));
-    keyEmotions.push('tired', 'exhausted');
+  // If no text provided, infer emotion primarily from stress level and sleep
+  if (!hasText) {
+    console.log('Using stress-based analysis (no text)');
+    if (normalizedStress >= 8) {
+      primaryEmotion = 'anxious';
+      moodScore = Math.max(1, 4 - (normalizedStress / 2));
+      keyEmotions.push('anxious', 'stressed');
+    } else if (normalizedStress >= 6) {
+      primaryEmotion = 'stressed';
+      moodScore = Math.max(2, 6 - normalizedStress);
+      keyEmotions.push('stressed', 'tense');
+    } else if (normalizedStress <= 2 && normalizedSleep >= 7) {
+      primaryEmotion = 'calm';
+      moodScore = Math.min(9, 7 + (normalizedSleep / 3) - (normalizedStress / 4));
+      keyEmotions.push('calm', 'peaceful');
+    } else if (normalizedSleep < 5) {
+      primaryEmotion = 'tired';
+      moodScore = Math.max(2, 6 - (12 - normalizedSleep));
+      keyEmotions.push('tired', 'exhausted');
+    } else if (normalizedStress <= 3) {
+      primaryEmotion = 'happy';
+      moodScore = Math.max(7, 10 - normalizedStress + (normalizedSleep / 2));
+      keyEmotions.push('happy', 'content');
+    } else {
+      // Moderate stress, decent sleep
+      moodScore = Math.round(5 + (normalizedSleep / 3) - (normalizedStress / 2));
+      keyEmotions.push('neutral');
+    }
+    console.log('Result - Emotion:', primaryEmotion, 'Score:', moodScore);
   } else {
-    // Default neutral state
-    moodScore = Math.round(5 + (normalizedSleep / 3) - (normalizedStress / 2));
-    keyEmotions.push('neutral');
+    console.log('Using text-based analysis');
+    // Text-based analysis (original logic)
+    if (emotionalIndicators.happiness) {
+      primaryEmotion = 'happy';
+      moodScore = Math.max(7, 10 - normalizedStress + (normalizedSleep / 2));
+      keyEmotions.push('happy', 'positive');
+    } else if (emotionalIndicators.anxiety) {
+      primaryEmotion = 'anxious';
+      moodScore = Math.max(1, 4 - (normalizedStress / 2));
+      keyEmotions.push('anxious', 'worried');
+    } else if (emotionalIndicators.depression) {
+      primaryEmotion = 'depressed';
+      moodScore = Math.max(1, 3 - (normalizedStress / 3));
+      keyEmotions.push('sad', 'down');
+    } else if (emotionalIndicators.anger) {
+      primaryEmotion = 'angry';
+      moodScore = Math.max(2, 5 - (normalizedStress / 2));
+      keyEmotions.push('angry', 'frustrated');
+    } else if (emotionalIndicators.stress) {
+      primaryEmotion = 'stressed';
+      moodScore = Math.max(2, 6 - normalizedStress);
+      keyEmotions.push('stressed', 'overwhelmed');
+    } else if (emotionalIndicators.calm) {
+      primaryEmotion = 'calm';
+      moodScore = Math.min(9, 7 + (normalizedSleep / 3) - (normalizedStress / 4));
+      keyEmotions.push('calm', 'peaceful');
+    } else if (emotionalIndicators.grief) {
+      primaryEmotion = 'grieving';
+      moodScore = Math.max(1, 4 - (normalizedStress / 3));
+      keyEmotions.push('grieving', 'sad');
+    } else if (emotionalIndicators.confusion) {
+      primaryEmotion = 'confused';
+      moodScore = Math.max(3, 5 - (normalizedStress / 3));
+      keyEmotions.push('confused', 'uncertain');
+    } else if (emotionalIndicators.fatigue) {
+      primaryEmotion = 'tired';
+      moodScore = Math.max(2, 6 - (12 - normalizedSleep));
+      keyEmotions.push('tired', 'exhausted');
+    } else {
+      // Default neutral state
+      moodScore = Math.round(5 + (normalizedSleep / 3) - (normalizedStress / 2));
+      keyEmotions.push('neutral');
+    }
   }
 
   moodScore = Math.max(1, Math.min(10, Math.round(moodScore)));
@@ -135,102 +178,92 @@ function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
       'Spend time in nature or by a window'
     ],
     grieving: [
-      'Allow yourself to cry if you need to',
-      'Look through photos or mementos that bring comfort',
-      'Write a letter to your loved one or journal about your feelings',
-      'Reach out to a grief counselor or support group'
+      'Allow yourself time to grieve and process your emotions',
+      'Reach out to supportive friends or family',
+      'Consider joining a support group or speaking with a counselor',
+      'Create a small ritual to honor your loss'
     ],
     confused: [
-      'Write down your thoughts to help organize them',
-      'Talk through your situation with a trusted friend',
-      'Take a break from decision-making if possible',
-      'Try meditation to quiet mental chatter'
+      'Take time to journal your thoughts and feelings',
+      'Talk through your confusion with a trusted friend',
+      'Break down complex issues into smaller, manageable parts',
+      'Practice mindfulness to stay present and reduce anxiety'
     ],
     tired: [
-      'Take a 20-30 minute power nap if possible',
-      'Go to bed 30 minutes earlier tonight',
-      'Avoid caffeine and screens before bedtime',
-      'Try gentle stretching or restorative yoga'
+      'Take a short nap or rest break',
+      'Practice gentle stretching or yoga',
+      'Ensure you have a consistent sleep schedule',
+      'Limit caffeine and screen time before bed'
     ],
     neutral: [
-      'Set a small, achievable goal for today',
-      'Try something new or learn a new skill',
-      'Connect with a friend or family member',
+      'Try a new hobby or activity you\'ve been curious about',
+      'Connect with friends or family for social support',
+      'Set small, achievable goals for the day',
       'Practice mindfulness or meditation'
     ]
   };
 
-  // Generate music recommendations based on emotion
+  // Generate music recommendations
   const musicMap = {
     happy: [
       '"Happy" by Pharrell Williams',
-      '"Good Vibrations" by The Beach Boys',
-      '"Walking on Sunshine" by Katrina and the Waves',
-      '"Can\'t Stop the Feeling" by Justin Timberlake',
-      '"Uptown Funk" by Mark Ronson ft. Bruno Mars'
+      '"Can\'t Stop the Feeling!" by Justin Timberlake',
+      '"Uptown Funk" by Mark Ronson ft. Bruno Mars',
+      '"Walking on Sunshine" by Katrina and the Waves'
     ],
     anxious: [
       '"Weightless" by Marconi Union',
-      '"Clair de Lune" by Claude Debussy',
-      '"Aqueous Transmission" by Incubus',
-      '"Mad World" by Gary Jules (for processing)',
-      '"Breathe Me" by Sia (for understanding)'
+      '"River Flows in You" by Yiruma',
+      '"The Journey" by 911 Band',
+      '"Breathe Me" by Sia'
     ],
     depressed: [
       '"The Sound of Silence" by Simon & Garfunkel',
       '"Hurt" by Johnny Cash',
-      '"Black" by Pearl Jam',
       '"Everybody Hurts" by R.E.M.',
-      '"Skinny Love" by Bon Iver'
+      '"Tears in Heaven" by Eric Clapton'
     ],
     angry: [
       '"Break Stuff" by Limp Bizkit',
       '"Killing in the Name" by Rage Against the Machine',
-      '"Bodies" by Drowning Pool',
-      '"Chop Suey!" by System of a Down',
-      '"Last Resort" by Papa Roach'
+      '"You Give Love a Bad Name" by Bon Jovi',
+      '"Back in Black" by AC/DC'
     ],
     stressed: [
       '"Stress Relief" by Liquid Mind',
-      '"River" by Joni Mitchell',
-      '"The Night We Met" by Lord Huron',
-      '"Holocene" by Bon Iver',
-      '"Mad About You" by Sting'
+      '"The Köln Concert" by Keith Jarrett',
+      '"Music for Airports" by Brian Eno',
+      '"Weightless (Remix)" by Marconi Union'
     ],
     calm: [
       '"Gymnopédie No. 1" by Erik Satie',
-      '"Spiegel im Spiegel" by Arvo Pärt',
-      '"On Earth as It Is in Heaven" by Ólafur Arnalds',
-      '"Nuvole Bianche" by Ludovico Einaudi',
-      '"Porcelain" by Moby'
+      '"Comptine d\'un autre été" by Yann Tiersen',
+      '"The Piano Guys" selections',
+      '"Moonlight Sonata" by Beethoven'
     ],
     grieving: [
+      '"Hallelujah" by Leonard Cohen',
       '"Tears in Heaven" by Eric Clapton',
-      '"Hallelujah" by Jeff Buckley',
-      '"The Dance" by Garth Brooks',
-      '"See You Again" by Wiz Khalifa ft. Charlie Puth',
-      '"My Heart Will Go On" by Celine Dion'
+      '"My Heart Will Go On" by Celine Dion',
+      '"Supermarket Flowers" by Ed Sheeran'
     ],
     confused: [
-      '"Losing My Religion" by R.E.M.',
-      '"Creep" by Radiohead',
-      '"Everybody\'s Free (To Wear Sunscreen)" by Baz Luhrmann',
-      '"The Middle" by Jimmy Eat World',
-      '"Unwell" by Matchbox Twenty'
+      '"Imagine" by John Lennon',
+      '"What a Wonderful World" by Louis Armstrong',
+      '"The Times They Are A-Changin\'" by Bob Dylan',
+      '"Blackbird" by The Beatles'
     ],
     tired: [
-      '"Sleepyhead" by Passion Pit',
-      '"I\'m Tired" by Labrinth & Zendaya',
-      '"Tired" by Stone Sour',
-      '"So Tired" by Ozzy Osbourne',
-      '"Exhausted" by Foo Fighters'
+      '"Goodnight Moon" by Shivaree',
+      '"Lullaby" by Dixie Chicks',
+      '"Brahms\' Lullaby" by Johannes Brahms',
+      '"Dream On" by Aerosmith'
     ],
     neutral: [
       '"Three Little Birds" by Bob Marley',
+      '"Don\'t Worry, Be Happy" by Bobby McFerrin',
       '"Here Comes the Sun" by The Beatles',
-      '"Good Day Sunshine" by The Beatles',
-      '"Lovely Day" by Bill Withers',
-      '"What a Wonderful World" by Louis Armstrong'
+      '"Lean on Me" by Bill Withers'
     ]
   };
 
@@ -238,9 +271,10 @@ function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
   const activities = activityMap[primaryEmotion] || activityMap.neutral;
   const musicRecommendations = musicMap[primaryEmotion] || musicMap.neutral;
   
-  // Select random activity and music recommendation
   const activitySuggestion = activities[Math.floor(Math.random() * activities.length)];
   const musicSuggestion = musicRecommendations[Math.floor(Math.random() * musicRecommendations.length)];
+
+  console.log('Result - Emotion:', primaryEmotion, 'Score:', moodScore, 'Overall Mood:', overallMood);
 
   return {
     overallMood,
@@ -253,54 +287,58 @@ function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
   };
 }
 
+// API endpoints
 app.post('/api/analyze/text', (req, res) => {
   const { text, sleepHours, stressLevel } = req.body || {};
   const result = makeAnalysis({ text, sleepHours, stressLevel });
-  // slight delay to simulate processing
-  setTimeout(() => res.json(result), 250);
+  res.json(result);
 });
 
 app.post('/api/analyze/image', (req, res) => {
-  const { text, sleepHours, stressLevel, imageBase64 } = req.body || {};
-  // We ignore image content in this mock; in a real backend you'd analyze it.
-  const result = makeAnalysis({ text, sleepHours, stressLevel });
-  setTimeout(() => res.json(result), 300);
-});
-
-app.post('/api/analyze/facial', (req, res) => {
   const { imageBase64 } = req.body || {};
-  // Simple mock heuristic: derive a pseudo-random but deterministic stress level from image size
-  // In a real implementation you'd run an ML model here.
+  
   try {
-    const size = imageBase64 ? Buffer.byteLength(imageBase64, 'base64') : 0;
-    // Map size into 1-10 range deterministically
-    const stressLevel = Math.max(1, Math.min(10, 1 + (size % 10)));
-    setTimeout(() => res.json({ stressLevel }), 200);
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'No image provided' });
+    }
+    
+    // Mock facial analysis - simulate processing time
+    const timestamp = Date.now();
+    const combined = (timestamp % 100) + (imageBase64.length % 100);
+    const stressLevel = (combined % 10) + 1;
+    
+    console.log('Facial Analysis - Stress:', stressLevel);
+    const result = makeAnalysis({ stressLevel });
+    res.json(result);
   } catch (err) {
-    res.status(400).send('Invalid image data');
+    console.error('Facial analysis error:', err);
+    res.status(400).send('Error processing image');
   }
 });
 
-app.post('/api/analyze/text-stress', (req, res) => {
+app.post('/api/analyze/stress-text', (req, res) => {
   const { text } = req.body || {};
   try {
     const t = (text || '').toLowerCase();
-    // Very simple heuristic: look for words indicating higher stress
     let score = 5;
-    if (/panic|anxious|anxiety|overwhelmed|stressed|stress|worried|depressed|hopeless/.test(t)) score = 8;
-    else if (/tired|exhausted|sleep deprived|sleep-deprived|fatigued/.test(t)) score = 6;
-    else if (/calm|relaxed|happy|joy|good|great|excited/.test(t)) score = 2;
-    // Slight modulation by length (long negative journal may indicate higher stress)
-    const len = t.split(/\s+/).filter(Boolean).length;
-    if (len > 50 && score >= 5) score = Math.min(10, score + 1);
-    setTimeout(() => res.json({ stressLevel: score }), 150);
+    if (/panic|terrified|overwhelmed|can't cope/i.test(t)) score = 9;
+    else if (/very stressed|high pressure|burnt out/i.test(t)) score = 8;
+    else if (/stressed|anxious|worried|nervous/i.test(t)) score = 7;
+    else if (/some stress|mild anxiety|tense/i.test(t)) score = 6;
+    else if (/tired|exhausted|fatigued/i.test(t)) score = 6;
+    else if (/calm|relaxed|happy|joy|good/i.test(t)) score = 4;
+    else if (/peaceful|serene|content/i.test(t)) score = 3;
+    res.json({ stressLevel: score });
   } catch (err) {
-    res.status(400).send('Invalid text');
+    console.error('Stress text analysis error:', err);
+    res.status(400).send('Error analyzing stress text');
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Mock AI analysis API listening on:`);
-  console.log(`  - Local:   http://localhost:${PORT}`);
-  console.log(`  - Network: http://0.0.0.0:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Mock API server running on port ${PORT}`);
+  console.log(`Available endpoints:`);
+  console.log(`  POST /api/analyze/text - Analyze text for emotions`);
+  console.log(`  POST /api/analyze/image - Analyze facial expressions`);
+  console.log(`  POST /api/analyze/stress-text - Analyze text for stress levels`);
 });

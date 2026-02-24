@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Facial API</title>
+</head>
+<body>
+    <h1>Test Facial Expression API</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="testAPI()">Test API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) {
+                alert('Please select an image');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const base64 = e.target.result.split(',')[1];
+                
+                console.log('Sending request...');
+                const response = await fetch('http://localhost:5050/api/analyze/facial', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: base64 })
+                });
+                
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                document.getElementById('result').innerHTML = 
+                    '<h2>Stress Level: ' + data.stressLevel + '/10</h2>';
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>

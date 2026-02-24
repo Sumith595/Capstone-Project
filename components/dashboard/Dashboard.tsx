@@ -13,18 +13,53 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
 
   useEffect(() => {
-    // Use user.email for a more reliable unique key
+    // Clear all old journal data that might have images
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.includes('thrivesense_journal_')) {
+        try {
+          const data = localStorage.getItem(key);
+          if (data && data.length > 100000) { // If data is larger than 100KB, it likely has images
+            console.log('Clearing large localStorage entry:', key);
+            localStorage.removeItem(key);
+          }
+        } catch (e) {
+          localStorage.removeItem(key);
+        }
+      }
+    });
+
+    // Load journal entries (should be clean now)
     const storedEntries = localStorage.getItem(`thrivesense_journal_${user.email}`);
     if (storedEntries) {
-      setJournalEntries(JSON.parse(storedEntries));
+      try {
+        const entries = JSON.parse(storedEntries);
+        setJournalEntries(entries);
+      } catch (error) {
+        console.error('Failed to load journal entries:', error);
+        localStorage.removeItem(`thrivesense_journal_${user.email}`);
+        setJournalEntries([]);
+      }
     }
   }, [user.email]);
 
   const addJournalEntry = (entry: JournalEntry) => {
     const updatedEntries = [entry, ...journalEntries];
     setJournalEntries(updatedEntries);
-    // Use user.email for a more reliable unique key
-    localStorage.setItem(`thrivesense_journal_${user.email}`, JSON.stringify(updatedEntries));
+    
+    // Don't store facial images in localStorage to avoid quota issues
+    // Create a copy without the facialImage for storage
+    const entriesForStorage = updatedEntries.map(e => ({
+      ...e,
+      facialImage: undefined // Remove image data before storing
+    }));
+    
+    try {
+      localStorage.setItem(`thrivesense_journal_${user.email}`, JSON.stringify(entriesForStorage));
+    } catch (error) {
+      console.error('Failed to save to localStorage:', error);
+      // If storage fails, at least keep it in memory
+    }
   };
 
   return (

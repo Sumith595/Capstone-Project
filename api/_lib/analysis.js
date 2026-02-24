@@ -1,5 +1,5 @@
 // Shared analysis logic for Vercel serverless functions
-export function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
+export function makeAnalysis({ text, sleepHours = 7, stressLevel = 5, facialEmotion }) {
   // Normalize inputs
   const normalizedSleep = Math.max(0, Math.min(12, Number(sleepHours) || 7));
   const normalizedStress = Math.max(0, Math.min(10, Number(stressLevel) || 5));
@@ -19,51 +19,114 @@ export function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
     fatigue: /tired|exhausted|drained|sleepy|weary|worn out/i.test(text)
   };
 
-  // Determine primary emotion and mood score
+  // Priority: facial > text > stress-based
   let primaryEmotion = 'neutral';
   let moodScore = 5;
   const keyEmotions = [];
 
-  if (emotionalIndicators.happiness) {
-    primaryEmotion = 'happy';
-    moodScore = Math.max(7, 10 - normalizedStress + (normalizedSleep / 2));
-    keyEmotions.push('happy', 'positive');
-  } else if (emotionalIndicators.anxiety) {
-    primaryEmotion = 'anxious';
-    moodScore = Math.max(1, 4 - (normalizedStress / 2));
-    keyEmotions.push('anxious', 'worried');
-  } else if (emotionalIndicators.depression) {
-    primaryEmotion = 'depressed';
-    moodScore = Math.max(1, 3 - (normalizedStress / 3));
-    keyEmotions.push('sad', 'down');
-  } else if (emotionalIndicators.anger) {
-    primaryEmotion = 'angry';
-    moodScore = Math.max(2, 5 - (normalizedStress / 2));
-    keyEmotions.push('angry', 'frustrated');
-  } else if (emotionalIndicators.stress) {
-    primaryEmotion = 'stressed';
-    moodScore = Math.max(2, 6 - normalizedStress);
-    keyEmotions.push('stressed', 'overwhelmed');
-  } else if (emotionalIndicators.calm) {
-    primaryEmotion = 'calm';
-    moodScore = Math.min(9, 7 + (normalizedSleep / 3) - (normalizedStress / 4));
-    keyEmotions.push('calm', 'peaceful');
-  } else if (emotionalIndicators.grief) {
-    primaryEmotion = 'grieving';
-    moodScore = Math.max(1, 4 - (normalizedStress / 3));
-    keyEmotions.push('grieving', 'sad');
-  } else if (emotionalIndicators.confusion) {
-    primaryEmotion = 'confused';
-    moodScore = Math.max(3, 5 - (normalizedStress / 3));
-    keyEmotions.push('confused', 'uncertain');
-  } else if (emotionalIndicators.fatigue) {
-    primaryEmotion = 'tired';
-    moodScore = Math.max(2, 6 - (12 - normalizedSleep));
-    keyEmotions.push('tired', 'exhausted');
+  // Check if text is provided and not empty
+  const hasText = Boolean(text && typeof text === 'string' && text.trim().length > 0);
+  const hasFacial = Boolean(facialEmotion);
+
+  if (hasText) {
+    // Text-based analysis
+    if (emotionalIndicators.happiness) {
+      primaryEmotion = 'happy';
+      moodScore = Math.max(7, 10 - normalizedStress + (normalizedSleep / 2));
+      keyEmotions.push('happy', 'positive');
+    } else if (emotionalIndicators.anxiety) {
+      primaryEmotion = 'anxious';
+      moodScore = Math.max(1, 4 - (normalizedStress / 2));
+      keyEmotions.push('anxious', 'worried');
+    } else if (emotionalIndicators.depression) {
+      primaryEmotion = 'depressed';
+      moodScore = Math.max(1, 3 - (normalizedStress / 3));
+      keyEmotions.push('sad', 'down');
+    } else if (emotionalIndicators.anger) {
+      primaryEmotion = 'angry';
+      moodScore = Math.max(2, 5 - (normalizedStress / 2));
+      keyEmotions.push('angry', 'frustrated');
+    } else if (emotionalIndicators.stress) {
+      primaryEmotion = 'stressed';
+      moodScore = Math.max(2, 6 - normalizedStress);
+      keyEmotions.push('stressed', 'overwhelmed');
+    } else if (emotionalIndicators.calm) {
+      primaryEmotion = 'calm';
+      moodScore = Math.min(9, 7 + (normalizedSleep / 3) - (normalizedStress / 4));
+      keyEmotions.push('calm', 'peaceful');
+    } else if (emotionalIndicators.grief) {
+      primaryEmotion = 'grieving';
+      moodScore = Math.max(1, 4 - (normalizedStress / 3));
+      keyEmotions.push('grieving', 'sad');
+    } else if (emotionalIndicators.confusion) {
+      primaryEmotion = 'confused';
+      moodScore = Math.max(3, 5 - (normalizedStress / 3));
+      keyEmotions.push('confused', 'uncertain');
+    } else if (emotionalIndicators.fatigue) {
+      primaryEmotion = 'tired';
+      moodScore = Math.max(2, 6 - (12 - normalizedSleep));
+      keyEmotions.push('tired', 'exhausted');
+    } else {
+      // Default neutral state
+      moodScore = Math.round(5 + (normalizedSleep / 3) - (normalizedStress / 2));
+      keyEmotions.push('neutral');
+    }
+  } else if (hasFacial) {
+    // Facial-based analysis
+    const emotion = facialEmotion.toLowerCase();
+    
+    if (emotion === 'happy') {
+      primaryEmotion = 'happy';
+      moodScore = 8;
+      keyEmotions.push('happy', 'positive');
+    } else if (emotion === 'sad') {
+      primaryEmotion = 'depressed';
+      moodScore = 2;
+      keyEmotions.push('sad', 'down');
+    } else if (emotion === 'angry') {
+      primaryEmotion = 'angry';
+      moodScore = 3;
+      keyEmotions.push('angry', 'frustrated');
+    } else if (emotion === 'fearful') {
+      primaryEmotion = 'anxious';
+      moodScore = 2;
+      keyEmotions.push('fearful', 'anxious');
+    } else if (emotion === 'surprised') {
+      primaryEmotion = 'confused';
+      moodScore = 5;
+      keyEmotions.push('surprised', 'confused');
+    } else if (emotion === 'disgusted') {
+      primaryEmotion = 'angry';
+      moodScore = 4;
+      keyEmotions.push('disgusted', 'uncomfortable');
+    } else {
+      primaryEmotion = 'neutral';
+      moodScore = 5;
+      keyEmotions.push('neutral');
+    }
   } else {
-    // Default neutral state
-    moodScore = Math.round(5 + (normalizedSleep / 3) - (normalizedStress / 2));
-    keyEmotions.push('neutral');
+    // Stress-based analysis
+    if (normalizedStress >= 8) {
+      primaryEmotion = 'anxious';
+      moodScore = 2;
+      keyEmotions.push('anxious', 'stressed');
+    } else if (normalizedStress >= 6) {
+      primaryEmotion = 'stressed';
+      moodScore = 3;
+      keyEmotions.push('stressed', 'tense');
+    } else if (normalizedStress <= 2) {
+      primaryEmotion = 'happy';
+      moodScore = 8;
+      keyEmotions.push('happy', 'content');
+    } else if (normalizedStress <= 4) {
+      primaryEmotion = 'calm';
+      moodScore = 7;
+      keyEmotions.push('calm', 'peaceful');
+    } else {
+      primaryEmotion = 'neutral';
+      moodScore = 5;
+      keyEmotions.push('neutral');
+    }
   }
 
   moodScore = Math.max(1, Math.min(10, Math.round(moodScore)));
@@ -241,6 +304,7 @@ export function makeAnalysis({ text, sleepHours = 7, stressLevel = 5 }) {
     feedback,
     activitySuggestion,
     musicRecommendation: musicSuggestion,
-    primaryEmotion
+    primaryEmotion,
+    facialEmotion: hasFacial ? facialEmotion : undefined
   };
 }

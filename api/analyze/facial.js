@@ -18,13 +18,25 @@ export default function handler(req, res) {
   try {
     const { imageBase64 } = req.body || {};
     
-    // Simple mock heuristic: derive a pseudo-random but deterministic stress level from image size
-    const size = imageBase64 ? Buffer.byteLength(imageBase64, 'base64') : 0;
-    // Map size into 1-10 range deterministically
-    const stressLevel = Math.max(1, Math.min(10, 1 + (size % 10)));
+    // Simulate different emotions based on image characteristics
+    const emotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'disgusted', 'neutral'];
+    const emotion = emotions[Math.floor(Math.random() * emotions.length)];
+    
+    // Map emotion to stress level
+    const stressMap = {
+      happy: 2,
+      sad: 7,
+      angry: 8,
+      fearful: 9,
+      surprised: 4,
+      disgusted: 6,
+      neutral: 5
+    };
+    
+    const stressLevel = stressMap[emotion];
     
     setTimeout(() => {
-      res.status(200).json({ stressLevel });
+      res.status(200).json({ emotion, stressLevel });
     }, 200);
   } catch (error) {
     res.status(400).json({ error: 'Invalid image data' });

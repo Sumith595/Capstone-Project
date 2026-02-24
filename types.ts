@@ -14,6 +14,7 @@ export interface JournalEntry {
   facialImage?: string; // base64 string
   sleepHours: number;
   stressLevel: number;
+  facialEmotion?: string; // detected facial emotion
 }
 
 export interface AIAnalysisResult {
@@ -24,4 +25,5 @@ export interface AIAnalysisResult {
   activitySuggestion: string;
   musicRecommendation?: string;
   primaryEmotion?: string;
+  facialEmotion?: string; // Detected facial emotion
 }

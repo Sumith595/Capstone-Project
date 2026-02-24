@@ -18,9 +18,16 @@ export default function handler(req, res) {
   }
 
   try {
-    const { text, sleepHours, stressLevel, imageBase64 } = req.body || {};
-    // We ignore image content in this mock; in a real backend you'd analyze it.
-    const result = makeAnalysis({ text, sleepHours, stressLevel });
+    const { text, sleepHours, stressLevel, imageBase64, facialEmotion } = req.body || {};
+    // If image provided and no facialEmotion, simulate one
+    let finalFacialEmotion = facialEmotion;
+    if (imageBase64 && !facialEmotion) {
+      const size = imageBase64 ? Buffer.byteLength(imageBase64, 'base64') : 0;
+      const hash = size % 7;
+      const emotions = ['happy', 'sad', 'angry', 'fearful', 'surprised', 'disgusted', 'neutral'];
+      finalFacialEmotion = emotions[hash];
+    }
+    const result = makeAnalysis({ text, sleepHours, stressLevel, facialEmotion: finalFacialEmotion });
     
     setTimeout(() => {
       res.status(200).json(result);
